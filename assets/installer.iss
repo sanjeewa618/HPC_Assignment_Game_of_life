@@ -1,7 +1,7 @@
 ; Inno Setup Script for Conway's Game of Life
 #define MyAppName "Conway's Game of Life"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "Senidu Ravihara"
+#define MyAppPublisher "HPC Project"
 #define MyAppExeName "game_of_life.exe"
 
 [Setup]

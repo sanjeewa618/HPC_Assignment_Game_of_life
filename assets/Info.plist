@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>game_of_life</string>
     <key>CFBundleIdentifier</key>
-    <string>com.seniduravihara.gameoflife</string>
+    <string>org.hpc.gameoflife</string>
     <key>CFBundleName</key>
     <string>Conway's Game of Life</string>
     <key>CFBundleDisplayName</key>
