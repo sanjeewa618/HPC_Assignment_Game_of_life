@@ -1,1 +1,210 @@
-# HPC_Assignment_Game_of_life
+# Conway's Game of Life (Interactive GUI with CUDA GPU & Multi-Threaded CPU)
+
+A feature-complete, modern graphical application of **Conway's Game of Life** built with standard **C++14**, **SDL2**, and **NVIDIA CUDA**. 
+
+It features an embedded graphical user interface (GUI) with interactive controls, pattern libraries, canvas zooming/panning, and a dual-engine architecture that runs out-of-the-box on standard CPUs (via OpenMP) while seamlessly utilizing NVIDIA CUDA GPUs when hardware acceleration is available.
+
+---
+
+## Key Features
+
+- **Dynamic Massive Grid Resizing**:
+  - Live grid resizing directly from the GUI or hotkeys without restarting the app!
+  - **Presets**: `256x256` (65K), `512x512` (262K), `1024x1024` (1M cells), `2048x2048` (4M cells), `4096x4096` (16.8M ULTRA cells), and `1920x1080` (FHD 2M cells).
+  - Automatically re-centers camera and recalculates textures seamlessly.
+- **Modern Embedded GUI**:
+  - **Header Bar**: Displays current active compute engine badge, real-time FPS counter, generation count, live population count, and grid resolution with million-cell metric tags.
+  - **Sidebar Control Panel**: Organized control sections for simulation playback, speed presets, drawing tools, brush sizes, pattern libraries, compute engine, camera, and grid resolutions.
+  - **Bottom Status Bar**: Live cursor grid coordinate tracking, cell state inspector, active tool indicator, and zoom level.
+  - **Zero External Font Dependencies**: Built-in 8x8 font atlas rendered directly with hardware-accelerated SDL2.
+- **Dual-Engine Architecture**:
+  - **Multi-Threaded CPU Engine (OpenMP)**: Highly optimized parallel stencil calculation with toroidal wrapping and parallel reduction for live cell counting. Runs on any computer (Intel, AMD, etc.) without requiring an NVIDIA GPU.
+  - **CUDA GPU Hardware Acceleration**: Utilizes 2D thread blocks (`16x16`), on-device ARGB pixel generation, pinned host memory (`cudaMallocHost`), on-GPU pseudorandom hash initialization, and GPU-side brush drawing.
+  - **Dynamic Switching**: Switch between CPU and GPU engines on the fly from the GUI while preserving the grid state!
+- **Interactive Canvas with Camera**:
+  - **Zoom**: Smooth zooming in and out (10% to 3200%) centered on mouse cursor via scroll wheel.
+  - **Pan**: Smooth dragging across large worlds with the middle mouse button.
+  - **View Presets**: Instant "Reset View (1:1)" and "Fit Canvas" buttons.
+- **Drawing Tools & Pattern Stamp Library**:
+  - **Pen Mode**: Click or drag with the left mouse button to paint living cells.
+  - **Erase Mode**: Click or drag with right mouse button (or Pen in Erase mode) to kill cells.
+  - **Configurable Brush Sizes**: 1x1, 3x3, 5x5 brush diameters.
+  - **Pattern Presets**: Stamp classic Conway patterns directly into the universe:
+    - *Glider* (traveling spaceship)
+    - *Gosper Glider Gun* (infinite factory producing moving gliders)
+    - *Pulsar* (period-3 oscillator)
+    - *Pentadecathlon* (period-15 oscillator)
+    - *Acorn* (methuselah evolving for over 5,000 generations)
+    - *Diehard* (vanishes after 130 generations)
+    - Live translucent placement ghost preview follows your cursor before stamping!
+- **Automatic Build Detection**:
+  - Running `make` automatically inspects your environment. If `nvcc` is detected, it compiles with full CUDA hardware acceleration. If not (such as on standard laptops), it automatically compiles with the multi-threaded CPU engine without errors.
+
+---
+
+## User Interface & Layout
+
+```
++---------------------------------------------------------------------------------------------------------+
+| [Header] CONWAY'S GAME OF LIFE | [ENGINE: CPU (OpenMP)] | GEN: 1,420 | POP: 8,310 | FPS: 60.0 | 1024x1024 (1.0M) |
++------------------------------------------------------------+--------------------------------------------+
+|                                                            | --- SIMULATION CONTROLS ---                |
+|                                                            | [ > PLAY / || PAUSE ]                      |
+|                     INTERACTIVE CANVAS                     | [ STEP (S) ]          [ CLEAR (C) ]        |
+|                                                            | [ RANDOMIZE (20%) ]                        |
+|               - Left-Click / Drag: Draw                    |                                            |
+|               - Right-Click / Drag: Erase                  | --- EXECUTION SPEED ---                    |
+|               - Mouse Wheel: Zoom (10% - 3200%)            | [ << SLOW ]   [ 60 FPS ]   [ FAST >> ]     |
+|               - Middle-Click / Drag: Pan Canvas            | [ MAX SPEED (0ms DELAY) ]                  |
+|               - Translucent Stamp Preview                  |                                            |
+|                                                            | --- TOOLS & BRUSH ---                      |
+|                                                            | [ PEN ]       [ ERASE ]     [ STAMP ]      |
+|                                                            | [ Size 1 ]    [ Size 3 ]    [ Size 5 ]     |
+|                                                            |                                            |
+|                                                            | --- PATTERN STAMP LIBRARY ---              |
+|                                                            | [ Glider ]           [ Gosper Gun ]        |
+|                                                            | [ Pulsar ]           [ Pentadecathlon ]    |
+|                                                            | [ Acorn ]            [ Diehard ]           |
+|                                                            |                                            |
+|                                                            | --- COMPUTE ENGINE ---                     |
+|                                                            | [ SWITCH ENGINE ]                          |
+|                                                            |                                            |
+|                                                            | --- CAMERA / VIEW ---                      |
+|                                                            | [ RESET VIEW ]       [ FIT CANVAS ]        |
+|                                                            |                                            |
+|                                                            | --- GRID RESOLUTION ---                    |
+|                                                            | [ 256x256 ]          [ 512x512 ]           |
+|                                                            | [ 1024x1024 (1M) ]   [ 2048x2048 (4M) ]    |
+|                                                            | [ 4096x4096 (16M) ]  [ 1920x1080 (FHD) ]   |
++------------------------------------------------------------+--------------------------------------------+
+| [Status Bar] Ready | COORD: (X: 184, Y: 295) | CELL: ALIVE | ZOOM: 100%                                 |
++---------------------------------------------------------------------------------------------------------+
+```
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| :--- | :--- |
+| `[Space]` | **Play / Pause** simulation |
+| `[S]` | **Single-step** 1 generation (when paused) |
+| `[R]` | **Randomize** grid (20% alive density) |
+| `[C]` | **Clear** entire grid (kill all cells) |
+| `[1]` | Resize to **256x256** (65K cells) |
+| `[2]` | Resize to **512x512** (262K cells) |
+| `[3]` | Resize to **1024x1024** (1.0M cells) |
+| `[4]` | Resize to **2048x2048** (4.2M cells) |
+| `[5]` | Resize to **4096x4096** (16.8M ULTRA cells) |
+| `[6]` | Resize to **1920x1080** (Full HD 2.0M cells) |
+| `[+ / = / Up Arrow]` | **Increase simulation speed** (decrease delay) |
+| `[- / Down Arrow]` | **Decrease simulation speed** (increase delay) |
+| `[Left-Click + Drag]` | Paint living cells or stamp selected pattern |
+| `[Right-Click + Drag]`| Erase cells |
+| `[Middle-Click + Drag]`| Pan camera view |
+| `[Scroll Wheel]` | Zoom in / out centered at mouse cursor |
+| `[Esc / Q]` | Exit application |
+
+---
+
+## Building and Running
+
+### 1. Automatic Build (Recommended)
+
+Just run `make`. It will detect whether your machine has the NVIDIA CUDA Toolkit (`nvcc`):
+```bash
+make
+./game_of_life
+```
+
+You can optionally specify grid dimensions (e.g. 512x512, 800x600, 1024x1024):
+```bash
+./game_of_life 800 600
+```
+
+### 2. Desktop Application Installation (Installable App)
+
+To install Conway's Game of Life as a native desktop application with an icon in your application launcher and on your desktop:
+
+```bash
+make install
+```
+This automatically:
+- Installs the executable to `~/.local/bin/game_of_life`
+- Installs the high-resolution app icon to `~/.local/share/icons/hicolor/scalable/apps/game-of-life.svg`
+- Registers the desktop entry to `~/.local/share/applications/game-of-life.desktop`
+- Adds a shortcut right onto your `Desktop` (`~/Desktop/game-of-life.desktop`)
+
+You can now launch the app from:
+1. Your **GNOME / Desktop Application Menu** (press the `Super`/Windows key and search `Game of Life`).
+2. Double-clicking the **Desktop icon**.
+3. Running `game_of_life` from any terminal.
+
+To cleanly uninstall at any time:
+```bash
+make uninstall
+```
+
+### 3. Explicit Target Builds
+
+- **Force Multi-Threaded CPU build** (runs on any PC with `g++` and SDL2):
+  ```bash
+  make cpu
+  ./game_of_life
+  ```
+- **Force CUDA GPU build** (requires an NVIDIA GPU and `nvcc`):
+  ```bash
+  make cuda
+  ./game_of_life
+  ```
+
+---
+
+## Automated CI/CD Builds (Windows `.exe` & macOS `.dmg`)
+
+This repository includes a ready-to-use **GitHub Actions Workflow** (`.github/workflows/build-artifacts.yml`) that automatically compiles and packages installable files for all major operating systems on every push or manual trigger:
+
+| Target OS | Output File | Description |
+| :--- | :--- | :--- |
+| **Windows** | `game-of-life-windows-setup.exe` | Complete Inno Setup installer wizard |
+| **Windows** | `game-of-life-windows-x64.zip` | Standalone portable `.exe` with bundled `SDL2.dll` |
+| **macOS** | `game-of-life-macos.dmg` | Native Apple `.app` bundle inside `.dmg` disk image |
+| **Linux** | `game-of-life-linux-x64.tar.gz` | Standalone Linux archive with icon and installer script |
+
+### How to Trigger the Workflow:
+1. **Manual Run**:
+   - Go to your repository on GitHub: `https://github.com/SeniduRavihara/Game_Of_Life`
+   - Click the **Actions** tab.
+   - Select **"Build Desktop Applications"** on the left.
+   - Click **Run workflow** -> **Run workflow**.
+   - Download the generated `.dmg` and `.exe` files directly from the run summary under **Artifacts**!
+2. **Automated on Git Tag (Releases)**:
+   - When you create a release tag (e.g. `v1.0.0`), GitHub Actions will build all targets and automatically attach `game-of-life-windows-setup.exe` and `game-of-life-macos.dmg` directly to the GitHub Release!
+
+---
+
+## Project Structure
+
+```
+Game_Of_Life/
+├── include/                   # Header files (.h)
+│   ├── engine.h               # Abstract SimulationEngine interface & CPU engine
+│   ├── engine_cuda.h          # CUDA GPU engine declaration
+│   ├── font8x8.h              # Embedded 8x8 font atlas & text renderer
+│   ├── gui.h                  # GUI widgets, layout, themes, camera
+│   └── patterns.h             # Conway patterns (Glider, Gosper Gun, Pulsar, etc.)
+├── src/                       # Source implementation files (.cpp / .cu)
+│   ├── engine_cpu.cpp         # OpenMP multi-threaded CPU engine
+│   ├── engine_cuda.cu         # CUDA GPU kernels and memory management
+│   ├── engine_factory.cpp     # Engine detection & factory instantiation
+│   ├── font8x8.cpp            # Font bitmap data and atlas initialization
+│   ├── gui.cpp                # Modern dark UI widgets, layout, buttons, camera
+│   └── main.cpp               # Master application loop, SDL2 initialization
+├── build/                     # Compiled object files (.o) [auto-generated]
+├── bin/                       # Output binaries [auto-generated]
+│   └── game_of_life           # Compiled executable
+├── game_of_life               # Convenience symlink to bin/game_of_life
+├── Makefile                   # Multi-target auto-detecting build system
+├── .gitignore                 # Git ignore for build artifacts and binaries
+└── README.md                  # Comprehensive documentation
+```
