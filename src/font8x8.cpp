@@ -176,9 +176,15 @@ void FontRenderer::draw_text_shadow(const std::string& text, int x, int y, SDL_C
 }
 
 void FontRenderer::draw_text_bold(const std::string& text, int x, int y, SDL_Color color, int scale) {
-    draw_text(text, x + 1, y, color, scale);
-    draw_text(text, x, y + 1, color, scale);
-    draw_text(text, x, y, color, scale);
+    if (scale > 1) {
+        draw_text(text, x + 1, y, color, scale);
+        draw_text(text, x, y, color, scale);
+    } else {
+        // High-contrast clean shadow for sharp readability without letter clumping
+        SDL_Color shadow = { 0, 0, 0, 160 };
+        draw_text(text, x + 1, y + 1, shadow, scale);
+        draw_text(text, x, y, color, scale);
+    }
 }
 
 void FontRenderer::draw_arcade_banner(const std::string& text, int x, int y, int w, int h, SDL_Color text_col, SDL_Color border_col, SDL_Color moss_col) {

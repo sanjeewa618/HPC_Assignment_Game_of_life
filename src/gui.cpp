@@ -107,11 +107,13 @@ void GUI::update_layout(int win_w, int win_h) {
 
     // =========================================================================
     // HEADER BAR: Switch Engine button (right of Grid Size HUD card)
-    // HUD cards start at x=350, compacted widths: 125+5, 105+5, 118+5, 88+5, 110+5 = 566+gaps
+    // =========================================================================
+    // HEADER BAR: Switch Engine button (right of Grid Size HUD card)
+    // HUD cards start at x=410, widths: 108, 120, 90, 115
     // =========================================================================
     {
         const int hud_gaps = 6;
-        int hx_btn = 350 + (125+hud_gaps) + (105+hud_gaps) + (118+hud_gaps) + (88+hud_gaps) + (110+hud_gaps);
+        int hx_btn = 410 + (108+hud_gaps) + (120+hud_gaps) + (90+hud_gaps) + (115+hud_gaps);
         int hdr_btn_w = (win_w - 236 - hx_btn - 8); // fill remaining header before right sidebar
         if (hdr_btn_w > 60) hdr_btn_w = std::min(hdr_btn_w, 120);
         buttons.emplace_back(hx_btn, 11, hdr_btn_w, 42, "Switch Engine", [this]() {
@@ -683,8 +685,8 @@ void GUI::draw(SDL_Renderer* renderer, FontRenderer& font, unsigned long long ge
         }
     };
 
-    // --- 5 Top HUD Cards + Engine Switch (compacted to fit) ---
-    int hx = 350;
+    // --- 4 Top HUD Cards + Engine Switch ---
+    int hx = 410;
     const int hud_y = 12;
     const int hud_h = 40;
     const int hgap  = 6;
@@ -701,31 +703,27 @@ void GUI::draw(SDL_Renderer* renderer, FontRenderer& font, unsigned long long ge
         font.draw_text_bold(val, x + 32, hud_y + 20, col, 1);
     };
 
-    // 1. Engine Card (compacted)
-    draw_hud_card(hx, 125, draw_cpu_icon, "Engine", engine_name, UITheme::ACCENT_BLUE);
-    hx += 125 + hgap;
+    // 1. Generation Card
+    draw_hud_card(hx, 108, draw_play_icon, "Generation", std::to_string(gen), UITheme::TEXT_TITLE);
+    hx += 108 + hgap;
 
-    // 2. Generation Card
-    draw_hud_card(hx, 105, draw_play_icon, "Generation", std::to_string(gen), UITheme::TEXT_TITLE);
-    hx += 105 + hgap;
+    // 2. Population Card
+    draw_hud_card(hx, 120, draw_users_icon, "Population", std::to_string(population), UITheme::TEXT_TITLE);
+    hx += 120 + hgap;
 
-    // 3. Population Card
-    draw_hud_card(hx, 118, draw_users_icon, "Population", std::to_string(population), UITheme::TEXT_TITLE);
-    hx += 118 + hgap;
-
-    // 4. FPS Card
+    // 3. FPS Card
     std::ostringstream ss_fps;
     ss_fps << std::fixed << std::setprecision(1) << fps;
-    draw_hud_card(hx, 88, draw_gauge_icon, "FPS", ss_fps.str(), UITheme::ACCENT_BLUE);
-    hx += 88 + hgap;
+    draw_hud_card(hx, 90, draw_gauge_icon, "FPS", ss_fps.str(), UITheme::ACCENT_BLUE);
+    hx += 90 + hgap;
 
-    // 5. Grid Size Card
+    // 4. Grid Size Card
     std::ostringstream ss_g;
     ss_g << grid_w << " x " << grid_h;
-    draw_hud_card(hx, 110, draw_grid_icon, "Grid Size", ss_g.str(), UITheme::TEXT_TITLE);
-    hx += 110 + hgap;
+    draw_hud_card(hx, 115, draw_grid_icon, "Grid Size", ss_g.str(), UITheme::TEXT_TITLE);
+    hx += 115 + hgap;
 
-    // 6. Switch Engine HUD button (right of Grid Size, drawn as a special card)
+    // 5. Switch Engine HUD button (right of Grid Size, drawn as a special card)
     {
         int sw_w = (right_sidebar_rect.x - hx - 8);
         sw_w = std::max(60, std::min(sw_w, 120));
@@ -817,7 +815,7 @@ void GUI::draw(SDL_Renderer* renderer, FontRenderer& font, unsigned long long ge
 
     // Card 5: HPC Performance Benchmark
     int c5_y = c4_y + 98;
-    int c5_h = has_benchmark_result ? 116 : 56;
+    int c5_h = has_benchmark_result ? 142 : 56;
     draw_modern_card({ lx, c5_y, lw, c5_h }, "HPC Benchmark (100g)", "~", UITheme::ACCENT_AMBER);
     
     if (has_benchmark_result) {
@@ -826,17 +824,35 @@ void GUI::draw(SDL_Renderer* renderer, FontRenderer& font, unsigned long long ge
         ss_p << std::fixed << std::setprecision(3) << last_benchmark_per_gen << " ms";
         ss_c << std::fixed << std::setprecision(1) << last_benchmark_mcells << " MC/s";
 
-        font.draw_text("Total (100g):", lx + 8, c5_y + 54, UITheme::TEXT_MUTED, 1);
-        int t_w = font.get_text_width(ss_t.str(), 1);
-        font.draw_text_bold(ss_t.str(), lx + lw - t_w - 8, c5_y + 54, UITheme::ACCENT_CYAN, 1);
+        // Inner sleek stat container
+        SDL_Rect sbox = { lx + 6, c5_y + 52, lw - 12, 82 };
+        SDL_SetRenderDrawColor(renderer, 7, 12, 20, 255);
+        SDL_RenderFillRect(renderer, &sbox);
+        SDL_SetRenderDrawColor(renderer, 32, 52, 78, 255);
+        SDL_RenderDrawRect(renderer, &sbox);
+        
+        // Cyan accent strip at top of stat box
+        SDL_SetRenderDrawColor(renderer, UITheme::ACCENT_BLUE.r, UITheme::ACCENT_BLUE.g, UITheme::ACCENT_BLUE.b, 200);
+        SDL_RenderDrawLine(renderer, sbox.x + 1, sbox.y + 1, sbox.x + sbox.w - 2, sbox.y + 1);
 
-        font.draw_text("Time / Gen:", lx + 8, c5_y + 70, UITheme::TEXT_MUTED, 1);
+        // Header label inside box
+        font.draw_text("COMPUTE TIME (100 GENS)", sbox.x + 8, sbox.y + 6, UITheme::TEXT_MUTED, 1);
+
+        // Prominent Scale 2 Large execution time display
+        font.draw_text(ss_t.str(), sbox.x + 8, sbox.y + 20, UITheme::ACCENT_BLUE, 2);
+
+        // Thin separator
+        SDL_SetRenderDrawColor(renderer, 24, 38, 56, 255);
+        SDL_RenderDrawLine(renderer, sbox.x + 6, sbox.y + 44, sbox.x + sbox.w - 7, sbox.y + 44);
+
+        // Sub-stats (Time/Gen and Throughput) with high-contrast text
+        font.draw_text("Avg/Gen :", sbox.x + 8, sbox.y + 50, UITheme::TEXT_MUTED, 1);
         int p_w = font.get_text_width(ss_p.str(), 1);
-        font.draw_text_bold(ss_p.str(), lx + lw - p_w - 8, c5_y + 70, UITheme::TEXT_TITLE, 1);
+        font.draw_text(ss_p.str(), sbox.x + sbox.w - p_w - 8, sbox.y + 50, { 255, 255, 255, 255 }, 1);
 
-        font.draw_text("Throughput:", lx + 8, c5_y + 86, UITheme::TEXT_MUTED, 1);
+        font.draw_text("Rate    :", sbox.x + 8, sbox.y + 65, UITheme::TEXT_MUTED, 1);
         int c_w = font.get_text_width(ss_c.str(), 1);
-        font.draw_text_bold(ss_c.str(), lx + lw - c_w - 8, c5_y + 86, UITheme::ACCENT_AMBER, 1);
+        font.draw_text(ss_c.str(), sbox.x + sbox.w - c_w - 8, sbox.y + 65, UITheme::ACCENT_AMBER, 1);
     }
 
     // --- Engine Switch Bar: Full-width strip pinned to the very bottom of left sidebar ---
