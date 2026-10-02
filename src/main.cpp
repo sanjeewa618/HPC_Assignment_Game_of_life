@@ -4,6 +4,7 @@
 #include <memory>
 #include <chrono>
 #include <algorithm>
+#define SDL_MAIN_HANDLED
 #if defined(__has_include)
   #if __has_include(<SDL2/SDL.h>)
     #include <SDL2/SDL.h>
@@ -24,6 +25,67 @@ int main(int argc, char* argv[]) {
     std::cout << "========================================================\n"
               << "       Conway's Game of Life - Interactive GUI\n"
               << "========================================================\n";
+
+    // 0. Headless CLI Benchmark Mode Check
+    if (argc >= 2 && (std::string(argv[1]) == "--benchmark" || std::string(argv[1]) == "-b")) {
+        int b_grid = (argc >= 3) ? std::atoi(argv[2]) : 2048;
+        int b_iters = (argc >= 4) ? std::atoi(argv[3]) : 100;
+        if (b_grid <= 0) b_grid = 2048;
+        if (b_iters <= 0) b_iters = 100;
+
+        std::cout << "\n============================================================\n";
+        std::cout << "           HPC BENCHMARK SUITE: GAME OF LIFE\n";
+        std::cout << "============================================================\n";
+        std::cout << "Grid Dimension : " << b_grid << " x " << b_grid << " (" << ((long long)b_grid * b_grid) << " cells)\n";
+        std::cout << "Iterations     : " << b_iters << " generations\n\n";
+
+        // [1/2] Benchmark CPU Engine
+        std::cout << ">> [1/2] Benchmarking CPU Engine (OpenMP Multi-Core)...\n";
+        auto cpu_eng = create_simulation_engine(false, b_grid, b_grid);
+        cpu_eng->randomize(20, 12345);
+        for (int i = 0; i < 3; ++i) cpu_eng->step(); // Warmup
+
+        auto cpu_t0 = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < b_iters; ++i) {
+            cpu_eng->step();
+        }
+        auto cpu_t1 = std::chrono::high_resolution_clock::now();
+        double cpu_ms = std::chrono::duration<double, std::milli>(cpu_t1 - cpu_t0).count();
+        double cpu_per_gen = cpu_ms / (double)b_iters;
+        double cpu_mc = ((double)b_grid * b_grid * (double)b_iters) / (cpu_ms * 1000.0);
+
+        std::cout << "   - Total Time : " << std::fixed << std::setprecision(2) << cpu_ms << " ms\n";
+        std::cout << "   - Avg / Gen  : " << std::fixed << std::setprecision(4) << cpu_per_gen << " ms\n";
+        std::cout << "   - Throughput : " << std::fixed << std::setprecision(2) << cpu_mc << " MCells/s\n\n";
+
+        // [2/2] Benchmark GPU Engine
+        bool cuda_ok = is_cuda_available();
+        if (cuda_ok) {
+            std::cout << ">> [2/2] Benchmarking GPU Engine (NVIDIA CUDA)...\n";
+            auto gpu_eng = create_simulation_engine(true, b_grid, b_grid);
+            gpu_eng->randomize(20, 12345);
+            for (int i = 0; i < 3; ++i) gpu_eng->step(); // Warmup
+
+            auto gpu_t0 = std::chrono::high_resolution_clock::now();
+            for (int i = 0; i < b_iters; ++i) {
+                gpu_eng->step();
+            }
+            auto gpu_t1 = std::chrono::high_resolution_clock::now();
+            double gpu_ms = std::chrono::duration<double, std::milli>(gpu_t1 - gpu_t0).count();
+            double gpu_per_gen = gpu_ms / (double)b_iters;
+            double gpu_mc = ((double)b_grid * b_grid * (double)b_iters) / (gpu_ms * 1000.0);
+
+            std::cout << "   - Total Time : " << std::fixed << std::setprecision(2) << gpu_ms << " ms\n";
+            std::cout << "   - Avg / Gen  : " << std::fixed << std::setprecision(4) << gpu_per_gen << " ms\n";
+            std::cout << "   - Throughput : " << std::fixed << std::setprecision(2) << gpu_mc << " MCells/s\n\n";
+            std::cout << "------------------------------------------------------------\n";
+            std::cout << "⚡ GPU SPEEDUP FACTOR: " << std::fixed << std::setprecision(2) << (cpu_ms / gpu_ms) << "x FASTER\n";
+        } else {
+            std::cout << ">> [2/2] GPU Engine (CUDA): Not available in this build / hardware.\n";
+        }
+        std::cout << "============================================================\n\n";
+        return 0;
+    }
 
     // 1. Grid Resolution (defaults to 512x512)
     int grid_w = 512;
@@ -95,7 +157,7 @@ int main(int argc, char* argv[]) {
     gui.current_grid_h = grid_h;
     gui.init(win_w, win_h);
     gui.cuda_capable = has_cuda;
-    gui.engine_name = engine->is_gpu() ? "ENGINE: CUDA (GPU)" : "ENGINE: CPU (OpenMP)";
+    gui.engine_name = engine->is_gpu() ? "CUDA (GPU)" : "CPU (OpenMP)";
 
     // Forward declare grid_texture pointer
     SDL_Texture* grid_texture = nullptr;
@@ -157,23 +219,89 @@ int main(int argc, char* argv[]) {
     };
 
     gui.on_toggle_engine = [&]() {
+#ifndef USE_CUDA
+        // This binary was compiled WITHOUT CUDA support.
+        // To enable GPU acceleration, recompile using: mingw32-make cuda
+        gui.status_msg = "[CPU Build] Recompile with 'make cuda' to enable NVIDIA GPU acceleration.";
+        gui.engine_name = "CPU (OpenMP)";
+        gui.cuda_capable = false;
+        return;
+#else
         if (!is_cuda_available()) {
-            gui.status_msg = "No CUDA GPU detected. Running multi-threaded CPU engine.";
+            gui.status_msg = "No NVIDIA GPU detected on this machine. Staying on CPU engine.";
+            gui.engine_name = "CPU (OpenMP)";
+            gui.cuda_capable = false;
             return;
         }
 
         bool switch_to_gpu = !engine->is_gpu();
-        std::cout << "[INFO] Switching compute engine to: " << (switch_to_gpu ? "CUDA GPU" : "CPU") << "\n";
+        std::cout << "[INFO] Switching engine -> " << (switch_to_gpu ? "CUDA GPU" : "CPU (OpenMP)") << "\n";
 
-        // Preserve current state across switch
+        // Backup current grid state so it survives the engine switch
         const unsigned char* old_state = engine->get_grid_state();
         std::vector<unsigned char> state_backup(old_state, old_state + (size_t)grid_w * grid_h);
 
+        // Create new engine and restore state
         engine = create_simulation_engine(switch_to_gpu, grid_w, grid_h);
         engine->set_grid_state(state_backup.data());
 
-        gui.engine_name = engine->is_gpu() ? "ENGINE: CUDA (GPU)" : "ENGINE: CPU (OpenMP)";
-        gui.status_msg = "Switched engine to: " + engine->get_name();
+        // Rebuild SDL streaming texture (dimensions same, but engine pointer changed)
+        if (grid_texture) {
+            SDL_DestroyTexture(grid_texture);
+            grid_texture = nullptr;
+        }
+        grid_texture = SDL_CreateTexture(
+            renderer, SDL_PIXELFORMAT_ARGB8888,
+            SDL_TEXTUREACCESS_STREAMING, grid_w, grid_h
+        );
+
+        gui.engine_name  = engine->is_gpu() ? "CUDA (GPU)" : "CPU (OpenMP)";
+        gui.cuda_capable = engine->is_gpu();
+        gui.status_msg   = std::string("Engine switched to: ") + engine->get_name();
+        std::cout << "[INFO] Switch complete. Engine: " << engine->get_name() << "\n";
+#endif
+    };
+
+    gui.on_run_benchmark = [&]() {
+        const int iters = 100;
+        gui.status_msg = "Running benchmark (100 gens) on " + gui.engine_name + "...";
+
+        auto t_start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < iters; ++i) {
+            engine->step();
+        }
+        auto t_end = std::chrono::high_resolution_clock::now();
+
+        double total_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+        double per_gen_ms = total_ms / (double)iters;
+        double mcells_per_sec = ((double)grid_w * grid_h * (double)iters) / (total_ms * 1000.0);
+
+        generation += iters;
+
+        gui.has_benchmark_result = true;
+        gui.last_benchmark_ms = (float)total_ms;
+        gui.last_benchmark_per_gen = (float)per_gen_ms;
+        gui.last_benchmark_mcells = (float)mcells_per_sec;
+        gui.benchmark_engine = gui.engine_name;
+        gui.benchmark_grid_w = grid_w;
+        gui.benchmark_grid_h = grid_h;
+
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(2);
+        ss << "[Benchmark: " << gui.engine_name << " " << grid_w << "x" << grid_h << " (100 gens)]: "
+           << total_ms << " ms (" << per_gen_ms << " ms/gen | " << std::setprecision(1) << mcells_per_sec << " MCells/s)";
+        gui.status_msg = ss.str();
+
+        std::cout << "\n=======================================================" << std::endl;
+        std::cout << "⏱️  HPC BENCHMARK RESULTS (Game of Life)" << std::endl;
+        std::cout << "-------------------------------------------------------" << std::endl;
+        std::cout << "Compute Engine : " << gui.engine_name << std::endl;
+        std::cout << "Grid Dimension : " << grid_w << " x " << grid_h << " (" << (grid_w * grid_h) << " cells)" << std::endl;
+        std::cout << "Iterations     : " << iters << " generations" << std::endl;
+        std::cout << "Total Time     : " << std::fixed << std::setprecision(2) << total_ms << " ms" << std::endl;
+        std::cout << "Time / Gen     : " << std::fixed << std::setprecision(4) << per_gen_ms << " ms" << std::endl;
+        std::cout << "Throughput     : " << std::fixed << std::setprecision(2) << mcells_per_sec << " Million Cells/sec" << std::endl;
+        std::cout << "=======================================================\n" << std::endl;
     };
 
     gui.on_reset_view = [&]() {

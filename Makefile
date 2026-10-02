@@ -12,13 +12,21 @@ INC_DIR   = include
 BUILD_DIR = build
 BIN_DIR   = bin
 
+# OS Detection & Flags
+ifeq ($(OS),Windows_NT)
+    LDFLAGS   = -lmingw32 -lSDL2main -lSDL2
+    EXE_EXT   = .exe
+else
+    LDFLAGS   = -lSDL2
+    EXE_EXT   =
+endif
+
 # Flags
 CXXFLAGS  = -std=c++14 -O3 -Wall -fopenmp -I$(INC_DIR)
 NVCCFLAGS = -std=c++14 -O3 -I$(INC_DIR)
-LDFLAGS   = -lSDL2
 
 # Target
-TARGET_NAME = game_of_life
+TARGET_NAME = game_of_life$(EXE_EXT)
 TARGET_BIN  = $(BIN_DIR)/$(TARGET_NAME)
 
 # Check if nvcc is available on system PATH
@@ -56,9 +64,9 @@ endif
 # CPU build (runs on any PC without NVIDIA GPU)
 cpu: $(BASE_OBJS) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $(TARGET_BIN) $(BASE_OBJS) $(LDFLAGS)
-	@ln -sf $(TARGET_BIN) $(TARGET_NAME)
+	@-cp -f $(TARGET_BIN) $(TARGET_NAME) 2>/dev/null || true
 	@echo "--------------------------------------------------------"
-	@echo " Build successful! Executable: ./$(TARGET_NAME) (or ./$(TARGET_BIN))"
+	@echo " Build successful! Executable: ./$(TARGET_BIN) (or ./$(TARGET_NAME))"
 	@echo "--------------------------------------------------------"
 
 # CUDA build (requires NVIDIA GPU and nvcc)
@@ -66,9 +74,9 @@ cuda: CXXFLAGS += -DUSE_CUDA
 cuda: NVCCFLAGS += -DUSE_CUDA
 cuda: $(BASE_OBJS) $(CUDA_OBJ) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $(TARGET_BIN) $(BASE_OBJS) $(CUDA_OBJ) $(LDFLAGS) -lcudart
-	@ln -sf $(TARGET_BIN) $(TARGET_NAME)
+	@-cp -f $(TARGET_BIN) $(TARGET_NAME) 2>/dev/null || true
 	@echo "--------------------------------------------------------"
-	@echo " CUDA Build successful! Executable: ./$(TARGET_NAME) (or ./$(TARGET_BIN))"
+	@echo " CUDA Build successful! Executable: ./$(TARGET_BIN) (or ./$(TARGET_NAME))"
 	@echo "--------------------------------------------------------"
 
 # Compile C++ source files into build/

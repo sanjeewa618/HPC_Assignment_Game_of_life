@@ -6,8 +6,45 @@ Designed to scale seamlessly from small configurations up to massive **$4096 \ti
 
 ---
 
+## ⚡ Quick Start (Run Locally)
+
+### 🪟 On Windows (via MSYS2 MINGW64 Terminal)
+```bash
+# 1. Install dependencies (one-time setup if needed)
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-SDL2 make
+
+# 2. Navigate to project directory
+cd "/c/Users/DELL/Documents/5th semester/HPC/HPC_Assignment_Game_of_life"
+
+# 3A. CPU (OpenMP Multi-Core) build & run
+mingw32-make clean
+mingw32-make cpu
+./bin/game_of_life.exe
+
+# 3B. CUDA + NVIDIA GPU build (auto-detects nvcc)
+mingw32-make clean
+mingw32-make cuda
+./bin/game_of_life.exe
+```
+
+---
+
+### 🐧 On Linux / WSL (Ubuntu)
+```bash
+# 1. Install dependencies (one-time setup)
+sudo apt update && sudo apt install build-essential libsdl2-dev make
+
+# 2. Build & Run
+make clean
+make cpu
+./bin/game_of_life
+```
+
+---
+
 ## 📌 Table of Contents
 
+- [Quick Start (Run Locally)](#-quick-start-run-locally)
 - [Overview & Problem Statement](#-overview--problem-statement)
 - [System Architecture & HPC Design](#-system-architecture--hpc-design)
   - [1. Multi-Core CPU Engine (OpenMP)](#1-multi-core-cpu-engine-openmp)
@@ -172,20 +209,43 @@ You can pass custom grid dimensions via command-line arguments:
 To manually choose the compute backend:
 
 - **Force Multi-Threaded CPU Engine (OpenMP):**
-  ```bash
-  make cpu
-  ./game_of_life
-  ```
+  - *Linux / WSL:*
+    ```bash
+    make cpu
+    ./game_of_life
+    ```
+  - *Windows (MSYS2 MINGW64):*
+    ```bash
+    mingw32-make cpu
+    ./bin/game_of_life.exe
+    ```
 
 - **Force CUDA GPU Accelerated Engine:**
-  ```bash
-  make cuda
-  ./game_of_life
-  ```
+  - *Linux / WSL:*
+    ```bash
+    make cuda
+    ./game_of_life
+    ```
+  - *Windows (MSYS2 MINGW64):*
+    ```bash
+    mingw32-make cuda
+    ./bin/game_of_life.exe
+    ```
 
 ---
 
-### 3. Desktop Installation (Optional)
+### 3. Automated HPC Benchmark Mode (Headless / CLI)
+
+To measure exact compute execution time across 100+ iterations without opening the graphical window (ideal for research tables and speedup graphs):
+
+```bash
+# Syntax: ./bin/game_of_life.exe --benchmark [Grid_Width] [Iterations]
+./bin/game_of_life.exe --benchmark 2048 100
+```
+
+---
+
+### 4. Desktop Installation (Optional)
 To register the application in your desktop menu with an icon shortcut:
 
 ```bash

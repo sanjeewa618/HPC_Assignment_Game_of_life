@@ -19,24 +19,30 @@
 #include "patterns.h"
 
 namespace UITheme {
-    const SDL_Color BG_DARK        = { 18,  18,  22, 255 }; // #121216
-    const SDL_Color PANEL_BG       = { 26,  26,  34, 255 }; // #1A1A22
-    const SDL_Color PANEL_BORDER   = { 44,  44,  58, 255 }; // #2C2C3A
-    const SDL_Color HEADER_BG      = { 22,  22,  28, 255 }; // #16161C
-    const SDL_Color STATUS_BG      = { 15,  15,  18, 255 }; // #0F0F12
+    // Canvas & Modern Dark Slate Panels
+    const SDL_Color BG_DARK        = {   5,   9,  16, 255 }; // Deep obsidian navy black
+    const SDL_Color PANEL_BG       = {   9,  15,  25, 255 }; // Modern dark slate sidebar
+    const SDL_Color CARD_BG        = {  13,  20,  32, 255 }; // Card container background (Image 1 style)
+    const SDL_Color PANEL_BORDER   = {  24,  38,  58, 255 }; // Crisp modern blue border
+    const SDL_Color CARD_BORDER    = {  26,  42,  64, 255 }; // Card container border
+    const SDL_Color HEADER_BG      = {   8,  13,  22, 255 }; // Deep modern header plate
 
-    const SDL_Color BTN_NORMAL     = { 36,  36,  48, 255 }; // #242430
-    const SDL_Color BTN_HOVER      = { 52,  52,  70, 255 }; // #343446
-    const SDL_Color BTN_ACTIVE     = { 0,  180, 100, 255 }; // Green active
-    const SDL_Color BTN_PAUSED     = { 220, 130,  20, 255 }; // Amber/Orange
-    const SDL_Color BTN_DANGER     = { 180,  40,  40, 255 }; // Red
+    // Button states (Blue Theme)
+    const SDL_Color BTN_NORMAL     = {  16,  25,  38, 255 }; // Dark slate button
+    const SDL_Color BTN_HOVER      = {  24,  38,  58, 255 }; // Blue glow hover
+    const SDL_Color BTN_ACTIVE     = {   0, 212, 255, 255 }; // Electric Neon Cyan/Blue active (Ref Image 2)
+    const SDL_Color BTN_ACTIVE_TXT = {   3,  10,  20, 255 }; // High contrast dark text on active
+    const SDL_Color BTN_DANGER     = { 220,  50,  50, 255 }; // Crimson danger
+    const SDL_Color BTN_BORDER     = {  32,  50,  74, 255 }; // Button edge outline
 
-    const SDL_Color TEXT_TITLE     = { 255, 255, 255, 255 };
-    const SDL_Color TEXT_NORMAL    = { 220, 225, 235, 255 };
-    const SDL_Color TEXT_MUTED     = { 140, 145, 160, 255 };
-    const SDL_Color ACCENT_GREEN   = { 0,  255, 127, 255 };
-    const SDL_Color ACCENT_BLUE    = { 70, 160, 255, 255 };
-    const SDL_Color ACCENT_AMBER   = { 255, 180,  40, 255 };
+    // Typography & Accents (Blue theme)
+    const SDL_Color TEXT_TITLE     = { 255, 255, 255, 255 }; // Pure white
+    const SDL_Color TEXT_NORMAL    = { 220, 235, 245, 255 }; // Crisp cool white text
+    const SDL_Color TEXT_MUTED     = { 115, 145, 175, 255 }; // Slate blue muted
+    const SDL_Color ACCENT_BLUE    = {   0, 212, 255, 255 }; // Electric Neon Blue (#00D4FF)
+    const SDL_Color ACCENT_CYAN    = {  56, 189, 248, 255 }; // Sky Blue (#38BDF8)
+    const SDL_Color ACCENT_INDIGO  = { 129, 140, 248, 255 }; // Indigo
+    const SDL_Color ACCENT_AMBER   = { 251, 191,  36, 255 }; // Warm Gold
 }
 
 enum class ToolMode {
@@ -54,10 +60,15 @@ public:
     bool is_active = false;
     bool is_danger = false;
     bool custom_color = false;
-    SDL_Color override_color = {0,0,0,0};
+    SDL_Color override_color = {0, 0, 0, 0};
+    bool has_accent = false;
+    SDL_Color accent_color = {0, 0, 0, 0};
 
     UIButton(int x, int y, int w, int h, const std::string& label, std::function<void()> callback = nullptr)
         : rect{x, y, w, h}, text(label), on_click(callback) {}
+
+    UIButton(int x, int y, int w, int h, const std::string& label, SDL_Color accent, std::function<void()> callback = nullptr)
+        : rect{x, y, w, h}, text(label), on_click(callback), has_accent(true), accent_color(accent) {}
 
     bool handle_event(const SDL_Event& e);
     void draw(SDL_Renderer* renderer, FontRenderer& font);
@@ -70,28 +81,45 @@ public:
 
     // Layout areas
     SDL_Rect header_rect;
-    SDL_Rect sidebar_rect;
+    SDL_Rect left_sidebar_rect;
+    SDL_Rect right_sidebar_rect;
     SDL_Rect canvas_rect;
     SDL_Rect status_rect;
+
+    // Start Screen state
+    bool in_start_screen = true;
+    bool in_transition   = false;  // playing enter animation
+    Uint32 transition_start_ms = 0;
+    static const int TRANSITION_MS = 800;
+
+    // Speed Slider state
+    SDL_Rect speed_slider_rect = { 0, 0, 0, 0 };
+    bool is_dragging_slider = false;
 
     // Simulation state references
     bool is_running = true;
     int delay_ms = 16;
     ToolMode current_tool = ToolMode::DRAW;
-    int brush_radius = 1;
+    int brush_radius = 2; // Default 5x5 as shown in image
     int selected_pattern_idx = 0;
     std::vector<Pattern> patterns;
 
-    // UI Buttons
+    // UI Buttons & indices
     std::vector<UIButton> buttons;
-    int idx_play_pause = -1;
+    int idx_btn_start = -1;
+    int idx_btn_pause = -1;
+    int idx_btn_reset = -1;
+    int idx_clear = -1;
     int idx_draw = -1;
     int idx_erase = -1;
     int idx_stamp = -1;
+    int idx_fill = -1;
     int idx_engine = -1;
-    int engine_note_y = 0;
+    int idx_engine_hdr = -1;  // Switch Engine button in top header bar
+    int idx_benchmark = -1;   // ⏱️ Run Benchmark (100 Gens) button
     std::vector<int> idx_brush_sizes;
     std::vector<int> idx_grid_sizes;
+    std::vector<int> idx_patterns;
     std::vector<std::pair<int, int>> grid_size_presets = {
         {256, 256},
         {512, 512},
@@ -101,11 +129,14 @@ public:
         {1920, 1080}
     };
 
-    struct SectionLabel {
-        std::string title;
-        int y;
-    };
-    std::vector<SectionLabel> section_labels;
+    // Benchmark Telemetry
+    bool has_benchmark_result = false;
+    float last_benchmark_ms = 0.0f;
+    float last_benchmark_per_gen = 0.0f;
+    float last_benchmark_mcells = 0.0f;
+    std::string benchmark_engine = "";
+    int benchmark_grid_w = 0;
+    int benchmark_grid_h = 0;
 
     // Status message
     std::string status_msg = "Ready. Left-click canvas to draw, drag to paint.";
@@ -134,6 +165,7 @@ public:
     std::function<void()> on_clear_clicked;
     std::function<void()> on_randomize_clicked;
     std::function<void()> on_toggle_engine;
+    std::function<void()> on_run_benchmark;
     std::function<void()> on_reset_view;
     std::function<void()> on_fit_canvas;
     std::function<void(int new_w, int new_h)> on_change_grid_size;

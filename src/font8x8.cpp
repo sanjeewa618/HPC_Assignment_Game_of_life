@@ -170,6 +170,90 @@ void FontRenderer::draw_text_centered(const std::string& text, int center_x, int
     draw_text(text, center_x - w / 2, y, color, scale);
 }
 
+void FontRenderer::draw_text_shadow(const std::string& text, int x, int y, SDL_Color color, SDL_Color shadow_col, int scale) {
+    draw_text(text, x + scale, y + scale, shadow_col, scale);
+    draw_text(text, x, y, color, scale);
+}
+
+void FontRenderer::draw_text_bold(const std::string& text, int x, int y, SDL_Color color, int scale) {
+    draw_text(text, x + 1, y, color, scale);
+    draw_text(text, x, y + 1, color, scale);
+    draw_text(text, x, y, color, scale);
+}
+
+void FontRenderer::draw_arcade_banner(const std::string& text, int x, int y, int w, int h, SDL_Color text_col, SDL_Color border_col, SDL_Color moss_col) {
+    if (!renderer) return;
+
+    // 1. Outer retro frame base (Brick / Timber tone)
+    SDL_Rect outer = { x, y, w, h };
+    SDL_SetRenderDrawColor(renderer, border_col.r, border_col.g, border_col.b, 255);
+    SDL_RenderFillRect(renderer, &outer);
+
+    // 2. Pixel notches / edge accents on outer frame
+    SDL_SetRenderDrawColor(renderer, (Uint8)std::min(255, border_col.r + 50),
+                                     (Uint8)std::min(255, border_col.g + 30),
+                                     (Uint8)std::min(255, border_col.b + 30), 255);
+    SDL_RenderDrawLine(renderer, x + 2, y + 1, x + w - 3, y + 1);
+    SDL_RenderDrawLine(renderer, x + 2, y + 2, x + w - 3, y + 2);
+
+    // 3. Green moss / vine pixel accents on the banner border (as shown in reference image 1)
+    SDL_SetRenderDrawColor(renderer, moss_col.r, moss_col.g, moss_col.b, 255);
+    for (int px = x + 6; px < x + w - 10; px += 18) {
+        SDL_Rect vine1 = { px, y - 1, 4, 3 };
+        SDL_Rect vine2 = { px + 2, y + 1, 3, 2 };
+        SDL_RenderFillRect(renderer, &vine1);
+        SDL_RenderFillRect(renderer, &vine2);
+
+        SDL_Rect vine3 = { px + 7, y + h - 2, 4, 3 };
+        SDL_Rect vine4 = { px + 9, y + h - 3, 3, 2 };
+        SDL_RenderFillRect(renderer, &vine3);
+        SDL_RenderFillRect(renderer, &vine4);
+    }
+
+    // 4. Dark inner plate
+    SDL_Rect inner = { x + 5, y + 5, w - 10, h - 10 };
+    SDL_SetRenderDrawColor(renderer, 10, 14, 22, 255);
+    SDL_RenderFillRect(renderer, &inner);
+
+    // 5. Inner highlight border
+    SDL_SetRenderDrawColor(renderer, 28, 44, 58, 255);
+    SDL_RenderDrawRect(renderer, &inner);
+
+    // 6. Centered pixel text with drop shadow (auto-scale to fit within banner)
+    int scale = 2;
+    int text_w = get_text_width(text, scale);
+    if (text_w > w - 16) {
+        scale = 1;
+        text_w = get_text_width(text, scale);
+    }
+    int text_x = x + (w - text_w) / 2;
+    int text_y = y + (h - 8 * scale) / 2;
+
+    SDL_Color shadow = { 0, 0, 0, 255 };
+    draw_text_shadow(text, text_x, text_y, text_col, shadow, scale);
+}
+
+void FontRenderer::draw_section_header(const std::string& title, int x, int y, int w, SDL_Color text_col, SDL_Color accent_col) {
+    if (!renderer) return;
+
+    // Header background bar
+    SDL_Rect bar = { x, y, w, 18 };
+    SDL_SetRenderDrawColor(renderer, 20, 28, 36, 255);
+    SDL_RenderFillRect(renderer, &bar);
+
+    // Accent left tag / indicator
+    SDL_Rect tag = { x, y, 4, 18 };
+    SDL_SetRenderDrawColor(renderer, accent_col.r, accent_col.g, accent_col.b, 255);
+    SDL_RenderFillRect(renderer, &tag);
+
+    // Accent bottom line
+    SDL_SetRenderDrawColor(renderer, 35, 52, 65, 255);
+    SDL_RenderDrawLine(renderer, x, y + 17, x + w, y + 17);
+
+    // Section title text
+    draw_text(title, x + 10, y + 5, text_col, 1);
+}
+
 int FontRenderer::get_text_width(const std::string& text, int scale) const {
     int max_len = 0;
     int cur_len = 0;

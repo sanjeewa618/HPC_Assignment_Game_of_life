@@ -9,9 +9,9 @@
 #include <cstring>
 #include "patterns.h"
 
-// Color scheme for ARGB 32-bit pixel buffers
-static const unsigned int COLOR_ALIVE = 0xFF00FF7F; // Vibrant Spring Green
-static const unsigned int COLOR_DEAD  = 0xFF141418; // Sleek Dark Slate
+// Color scheme for ARGB 32-bit pixel buffers (Matches electric neon cyan/blue from user image)
+static const unsigned int COLOR_ALIVE = 0xFF00D4FF; // Electric Neon Cyan/Blue (reference image 4)
+static const unsigned int COLOR_DEAD  = 0xFF050A14; // Deep Obsidian Navy Black
 
 class SimulationEngine {
 public:
